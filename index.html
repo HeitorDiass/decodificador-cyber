@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">id
+    <title>Decodificador Cyber</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Source+Code+Pro:wght@400;600&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --primary-color: #16213e;
+            --secondary-color: #0f3460;
+            --accent-color: #e94560;
+            --font-color: #e0e0e0;
+            --font-color-muted: #a0a0b0;
+            --glow-color: rgba(233, 69, 96, 0.5);
+            --border-color: #2a2a4e;
+            --font-main: 'Poppins', sans-serif;
+            --font-code: 'Source Code Pro', monospace;
+            --transition-speed: 0.3s;
+        }
+
+        .light-theme {
+            --bg-color: #f0f2f5;
+            --primary-color: #ffffff;
+            --secondary-color: #e9ebee;
+            --accent-color: #1877f2;
+            --font-color: #1c1e21;
+            --font-color-muted: #606770;
+            --glow-color: rgba(24, 119, 242, 0.5);
+            --border-color: #ccd0d5;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.7, 0, 0.3, 1), opacity 0.6s ease;
+        }
+        
+        .screen.hidden {
+            transform: translateX(100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .screen.hidden-left {
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .screen.active {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .container {
+            background: var(--primary-color);
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            width: 90%;
+            max-width: 600px;
+            transition: background-color var(--transition-speed), border-color var(--transition-speed);
+        }
+
+        h1, h2 { color: var(--font-color); transition: color var(--transition-speed); }
+        h1 { font-size: 2.5rem; margin-bottom: 20px; font-weight: 700; }
+        h2 { font-weight: 600; margin-bottom: 15px; }
+        p { font-size: 1.1rem; color: var(--font-color-muted); line-height: 1.6; margin-bottom: 30px; transition: color var(--transition-speed); }
+
+        .blinking-cursor { border-right: .15em solid var(--accent-color); animation: blink-caret .75s step-end infinite; }
+        @keyframes blink-caret { from, to { border-color: transparent } 50% { border-color: var(--accent-color); } }
+        
+        .button {
+            display: inline-block;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: white;
+            background: var(--accent-color);
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+            box-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color);
+        }
+        .button:hover { transform: translateY(-3px); box-shadow: 0 0 15px var(--glow-color), 0 0 25px var(--glow-color); }
+        .button:active { transform: scale(0.95); }
+        
+        .button.secondary { background: var(--secondary-color); color: var(--font-color); box-shadow: none; }
+        .button.secondary:hover { background: var(--border-color); box-shadow: none; }
+
+        .input-wrapper { position: relative; }
+        textarea, select { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 20px; font-size: 1rem; box-sizing: border-box; background: var(--bg-color); color: var(--font-color); font-family: var(--font-code); transition: all var(--transition-speed); }
+        textarea:focus, select:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 10px var(--glow-color); }
+        
+        .button-group { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .button-group-vertical { display: flex; flex-direction: column; gap: 10px; }
+        
+        #copy-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; cursor: pointer; padding: 5px; opacity: 0.6; transition: opacity var(--transition-speed); }
+        #copy-btn:hover { opacity: 1; }
+        #copy-btn svg { width: 20px; height: 20px; fill: var(--font-color-muted); }
+        #copy-feedback { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #2ddc71; color: white; padding: 10px 20px; border-radius: 8px; z-index: 100; font-weight: 600; opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+        #copy-feedback.show { opacity: 1; }
+
+        .hash-result-group { margin-top: 20px; }
+        .hash-result { display: flex; align-items: center; margin-bottom: 10px; }
+        .hash-result label { font-family: var(--font-code); font-weight: 600; color: var(--accent-color); margin-right: 10px; width: 80px; text-align: right; font-size: 0.9rem;}
+        .hash-result input { flex-grow: 1; font-family: var(--font-code); background: var(--bg-color); border: 1px solid var(--border-color); color: var(--font-color-muted); padding: 8px; border-radius: 6px; }
+
+        #qrcode-output { display: flex; justify-content: center; align-items: center; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; width: fit-content; }
+        #qrcode-output img { max-width: 100%; }
+
+        #explanations-screen .container { text-align: left; max-height: 80vh; overflow-y: auto; }
+        .code-example { background-color: var(--secondary-color); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-family: var(--font-code); font-size: 0.9rem; white-space: pre-wrap; border-left: 3px solid var(--accent-color); transition: background-color var(--transition-speed); }
+        
+        #theme-switcher { position: fixed; top: 20px; right: 20px; background: var(--primary-color); border: 1px solid var(--border-color); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; z-index: 99; display: flex; justify-content: center; align-items: center; }
+        #theme-switcher svg { width: 20px; height: 20px; fill: var(--font-color); position: absolute; transition: opacity 0.3s, transform 0.3s; }
+        #theme-switcher .sun { opacity: 0; transform: scale(0); }
+        .light-theme #theme-switcher .sun { opacity: 1; transform: scale(1); }
+        .light-theme #theme-switcher .moon { opacity: 0; transform: scale(0); }
+        
+        input[type="file"] { display: none; }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2rem; }
+            .container { padding: 25px; }
+            .button-group-vertical, #welcome-screen .button-group-vertical { display: flex; flex-direction: column; align-items: stretch; }
+            .button { width: 100%; margin: 8px 0; box-sizing: border-box; }
+            .hash-result { flex-direction: column; align-items: stretch; }
+            .hash-result label { text-align: left; margin-bottom: 5px; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="theme-switcher">
+        <svg class="sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,9A3,3,0,1,0,15,12,3,3,0,0,0,12,9Zm0,4a1,1,0,1,1,1-1A1,1,0,0,1,12,13ZM20,11H18.06A5.84,5.84,0,0,0,13,6.14V4h2V2H13V1H11V2H9V4h2V6.14A5.84,5.84,0,0,0,6.14,11H4v2H6.14A5.84,5.84,0,0,0,11,17.86V20H9v2h2v1h2V22h2V20h-2V17.86A5.84,5.84,0,0,0,17.86,13H20ZM12,16a4,4,0,1,1,4-4A4,4,0,0,1,12,16Z"/></svg>
+        <svg class="moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12,2A10,10,0,0,0,8.53,21.48,10,10,0,0,1,12,2Zm0,18a8,8,0,0,1,0-16,7.93,7.93,0,0,0,4.28,14.24A8,8,0,0,1,12,20Z"/></svg>
+    </div>
+
+    <div id="copy-feedback">Texto Copiado!</div>
+
+    <section id="welcome-screen" class="screen active">
+        <div class="container">
+            <h1 id="main-title"></h1>
+            <p>Sua suíte de ferramentas para dados. Codifique, gere hashes, crie QR Codes e explore o mundo da informação.</p>
+            <div class="button-group-vertical">
+                <button class="button" onclick="showScreen('tool-screen')">Codificador de Texto</button>
+                <button class="button" onclick="showScreen('hash-screen')">Gerador de Hash</button>
+                <button class="button" onclick="showScreen('qrcode-screen')">Gerador de QR Code</button>
+            </div>
+        </div>
+    </section>
+    
+    <section id="tool-screen" class="screen hidden">
+        <div class="container">
+            <h2>Codificador / Decodificador</h2>
+            <div class="input-wrapper">
+                <textarea id="text-input" rows="5" placeholder="Digite ou carregue um arquivo..."></textarea>
+                <button id="copy-btn" title="Copiar resultado">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20,4H10A2,2,0,0,0,8,6V18a2,2,0,0,0,2,2H20a2,2,0,0,0,2-2V6A2,2,0,0,0,20,4ZM19,17a1,1,0,0,1-1,1H12a1,1,0,0,1-1-1V7A1,1,0,0,1,12,6H18a1,1,0,0,1,1,1ZM7,2H4A2,2,0,0,0,2,4V16H4V4H7Z"/></svg>
+                </button>
+            </div>
+            <select id="encoding-method">
+                <option value="base64">Base64</option>
+                <option value="url">URL (Componente)</option>
+                <option value="hex">Hexadecimal</option>
+                <option value="binary">Binário</option>
+                <option value="rot13">Cifra ROT13</option>
+            </select>
+            <div class="button-group">
+                <button id="encode-btn" class="button">Codificar</button>
+                <button id="decode-btn" class="button secondary">Decodificar</button>
+            </div>
+             <input type="file" id="file-input-tool" accept=".txt">
+             <label for="file-input-tool" class="button secondary" style="width: 100%; box-sizing: border-box; margin: 10px 0;">Carregar Arquivo (.txt)</label>
+        </div>
+         <button class="button" onclick="showScreen('explanations-screen')" style="margin-top: 20px;">Não sabe o que são? Clique aqui!</button>
+         <button class="button secondary" onclick="showScreen('welcome-screen')" style="margin-top: 10px;">Voltar ao Início</button>
+    </section>
+
+    <section id="hash-screen" class="screen hidden">
+        <div class="container">
+            <h2>Gerador de Hash</h2>
+            <p>Digite ou carregue um arquivo. Lembre-se: hashing é uma via de mão única, não pode ser desfeito!</p>
+            <textarea id="hash-input" rows="5" placeholder="Digite uma senha ou texto..."></textarea>
+            <button id="hash-btn" class="button" style="width: 100%; margin-bottom: 10px;">Gerar Hashes</button>
+            <input type="file" id="file-input-hash" accept=".txt">
+            <label for="file-input-hash" class="button secondary" style="width: 100%; box-sizing: border-box; margin-bottom: 20px;">Carregar Arquivo (.txt)</label>
+            <div class="hash-result-group">
+                <div class="hash-result"><label>MD5:</label><input type="text" id="md5-output" readonly></div>
+                <div class="hash-result"><label>SHA-1:</label><input type="text" id="sha1-output" readonly></div>
+                <div class="hash-result"><label>SHA-256:</label><input type="text" id="sha256-output" readonly></div>
+                <div class="hash-result"><label>SHA-512:</label><input type="text" id="sha512-output" readonly></div>
+            </div>
+        </div>
+        <button class="button secondary" onclick="showScreen('welcome-screen')" style="margin-top: 20px;">Voltar ao Início</button>
+    </section>
+
+    <section id="qrcode-screen" class="screen hidden">
+        <div class="container">
+            <h2>Gerador de QR Code</h2>
+            <p>Digite um link ou texto para gerar um QR Code instantaneamente.</p>
+            <textarea id="qrcode-input" rows="4" placeholder="https://www.google.com"></textarea>
+            <div id="qrcode-output"></div>
+            <a id="download-qr-btn" class="button" style="display: none; width: fit-content; margin-top: 20px;">Salvar QR Code</a>
+        </div>
+        <button class="button secondary" onclick="showScreen('welcome-screen')" style="margin-top: 20px;">Voltar ao Início</button>
+    </section>
+
+    <section id="explanations-screen" class="screen hidden">
+        <div class="container">
+            <h1>Entendendo as Codificações</h1>
+            <h2>Base64</h2> <p>Pense no Base64 como um "tradutor" que converte qualquer tipo de dado para um texto seguro que pode viajar pela internet sem se corromper.</p> <div class="code-example">Olá -> T2zDoA==</div>
+            <h2>URL Encoding</h2> <p>Endereços de sites não podem ter espaços ou caracteres especiais. A codificação de URL age como um GPS, convertendo "buscar?q=cães & gatos" em algo que o navegador entenda sem se perder.</p> <div class="code-example">buscar?q=cães & gatos -> buscar%3Fq%3Dc%C3%A3es%20%26%20gatos</div>
+            <h2>Hexadecimal</h2> <p>Se o Binário é o alfabeto completo, o Hexadecimal é a taquigrafia. Ele compacta longos códigos binários em algo mais curto e legível para programadores (ex: cores na web).</p> <div class="code-example">Olá -> 4f 6c c3 a1</div>
+            <h2>Binário</h2> <p>A linguagem mais fundamental das máquinas. Tudo é uma sequência de interruptores ligados (1) e desligados (0).</p> <div class="code-example">Olá -> 01001111 01101100 11000011 10100001</div>
+            <h2>ROT13</h2> <p>Um "bilhete secreto" onde cada letra é trocada pela 13ª letra seguinte no alfabeto. Divertido, mas não é seguro.</p> <div class="code-example">Segredo -> Frterqb</div>
+            <button class="button" onclick="showScreen('tool-screen')" style="margin-top: 20px;">Testar Codificador</button>
+        </div>
+    </section>
+
+    <script>
+        let currentScreen = 'welcome-screen';
+        let typingInterval; 
+        
+        function typewriterEffect(element, text, speed = 35) {
+            let i = 0;
+            element.innerHTML = '';
+            element.classList.add('blinking-cursor');
+            if (typingInterval) { clearInterval(typingInterval); }
+            typingInterval = setInterval(() => {
+                if (i < text.length) {
+                    element.innerHTML += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typingInterval);
+                    setTimeout(() => element.classList.remove('blinking-cursor'), 1000);
+                }
+            }, speed);
+        }
+
+        function showScreen(screenId) {
+            const oldScreen = document.getElementById(currentScreen);
+            const newScreen = document.getElementById(screenId);
+            if (currentScreen === screenId) return;
+            const allScreens = Array.from(document.querySelectorAll('.screen'));
+            const oldIndex = allScreens.indexOf(oldScreen);
+            const newIndex = allScreens.indexOf(newScreen);
+            oldScreen.classList.remove('active');
+            if (oldIndex > newIndex && oldIndex !== -1 && newIndex !== -1) {
+                oldScreen.classList.add('hidden');
+                newScreen.classList.remove('hidden', 'hidden-left');
+            } else {
+                oldScreen.classList.add('hidden-left');
+                newScreen.classList.remove('hidden', 'hidden-left');
+            }
+            newScreen.classList.add('active');
+            currentScreen = screenId;
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const mainTitle = document.getElementById('main-title');
+            if(mainTitle) typewriterEffect(mainTitle, "Decodificador Cyber", 60);
+            
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-theme');
+            }
+        });
+
+        const themeSwitcher = document.getElementById('theme-switcher');
+        themeSwitcher.addEventListener('click', () => {
+            document.body.classList.toggle('light-theme');
+            const theme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
+            localStorage.setItem('theme', theme);
+        });
+
+        const textInput = document.getElementById('text-input');
+        const encodeButton = document.getElementById('encode-btn');
+        const decodeButton = document.getElementById('decode-btn');
+        const methodSelector = document.getElementById('encoding-method');
+        const copyButton = document.getElementById('copy-btn');
+        const copyFeedback = document.getElementById('copy-feedback');
+        copyButton.addEventListener('click', () => { if (!textInput.value) return; navigator.clipboard.writeText(textInput.value).then(() => { copyFeedback.classList.add('show'); setTimeout(() => copyFeedback.classList.remove('show'), 2000); }); });
+        function animateTextResult(result) { let i = 0; textInput.value = ''; const interval = setInterval(() => { if (i < result.length) { textInput.value += result.charAt(i); i++; } else { clearInterval(interval); } }, 15); }
+        function rot13(str) { return str.replace(/[a-zA-Z]/g,c=>String.fromCharCode((c<="Z"?90:122)>=(c=c.charCodeAt(0)+13)?c:c-26)); }
+        function textToHex(text) { let hex = ''; for (let i = 0; i < text.length; i++) { hex += ('0' + text.charCodeAt(i).toString(16)).slice(-2) + ' '; } return hex.trim(); }
+        function hexToText(hex) { const hexes = hex.match(/\b[0-9a-fA-F]{2}\b/g) || []; let text = ''; for (let i = 0; i < hexes.length; i++) { text += String.fromCharCode(parseInt(hexes[i], 16)); } return text; }
+        function textToBinary(text) { let binary = ''; for (let i = 0; i < text.length; i++) { binary += text.charCodeAt(i).toString(2).padStart(8, '0') + ' '; } return binary.trim(); }
+        function binaryToText(binary) { const binaries = binary.match(/\b[01]{8}\b/g) || []; let text = ''; for (let i = 0; i < binaries.length; i++) { text += String.fromCharCode(parseInt(binaries[i], 2)); } return text; }
+        encodeButton.addEventListener('click', () => { const text = textInput.value; const method = methodSelector.value; if (!text) return; let result = ''; try { if (method === 'base64') result = btoa(text); else if (method === 'url') result = encodeURIComponent(text); else if (method === 'hex') result = textToHex(text); else if (method === 'binary') result = textToBinary(text); else if (method === 'rot13') result = rot13(text); animateTextResult(result); } catch (error) { alert('Erro ao codificar: ' + error.message); } });
+        decodeButton.addEventListener('click', () => { const text = textInput.value; const method = methodSelector.value; if (!text) return; let result = ''; try { if (method === 'base64') result = atob(text); else if (method === 'url') result = decodeURIComponent(text); else if (method === 'hex') result = hexToText(text); else if (method === 'binary') result = binaryToText(text); else if (method === 'rot13') result = rot13(text); animateTextResult(result); } catch (error) { alert('Erro ao decodificar. Verifique o texto e o método.'); } });
+
+        const hashInput = document.getElementById('hash-input');
+        const hashButton = document.getElementById('hash-btn');
+        hashButton.addEventListener('click', () => {
+            if (typeof CryptoJS === 'undefined') { alert('Erro: A biblioteca de hashing não pôde ser carregada. Verifique sua conexão com a internet.'); return; }
+            const text = hashInput.value;
+            if(!text) return;
+            document.getElementById('md5-output').value = CryptoJS.MD5(text).toString();
+            document.getElementById('sha1-output').value = CryptoJS.SHA1(text).toString();
+            document.getElementById('sha256-output').value = CryptoJS.SHA256(text).toString();
+            document.getElementById('sha512-output').value = CryptoJS.SHA512(text).toString();
+        });
+
+        function setupFileUpload(inputId, outputId) {
+            const fileInput = document.getElementById(inputId);
+            const textOutput = document.getElementById(outputId);
+            fileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => { textOutput.value = e.target.result; };
+                reader.onerror = () => { alert('Erro ao ler o arquivo.'); };
+                reader.readAsText(file);
+                fileInput.value = '';
+            });
+        }
+        setupFileUpload('file-input-tool', 'text-input');
+        setupFileUpload('file-input-hash', 'hash-input');
+        
+        const qrCodeInput = document.getElementById('qrcode-input');
+        const qrCodeOutput = document.getElementById('qrcode-output');
+        const downloadQRBtn = document.getElementById('download-qr-btn');
+        let qrCodeInstance = null;
+
+        function generateQRCode() {
+            const text = qrCodeInput.value.trim();
+            qrCodeOutput.innerHTML = '';
+            downloadQRBtn.style.display = 'none';
+            if (text) {
+                if (qrCodeInstance) {
+                    qrCodeInstance.makeCode(text);
+                } else {
+                    qrCodeInstance = new QRCode(qrCodeOutput, {
+                        text: text,
+                        width: 200,
+                        height: 200,
+                        colorDark : "#000000",
+                        colorLight : "#ffffff",
+                        correctLevel : QRCode.CorrectLevel.H
+                    });
+                }
+                setTimeout(() => {
+                    const qrImg = qrCodeOutput.querySelector('img');
+                    if (qrImg) {
+                        downloadQRBtn.href = qrImg.src;
+                        downloadQRBtn.download = 'qrcode.png';
+                        downloadQRBtn.style.display = 'inline-block';
+                    }
+                }, 100);
+            }
+        }
+        qrCodeInput.addEventListener('keyup', generateQRCode);
+        qrCodeInput.addEventListener('change', generateQRCode);
+
+    </script>
+</body>
+</u>
